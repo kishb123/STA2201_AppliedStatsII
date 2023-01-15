@@ -1,6 +1,6 @@
 ---
 title: "Intro to Quarto and Tidyverse"
-author: "Monica Alexander"
+author: "Kishore Basu"
 date: today
 date-format: "DD/MM/YY"
 format: 
