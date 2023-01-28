@@ -156,14 +156,11 @@ ggplot(data = df2, aes(x = theta)) +
   stat_function(fun = dbeta, args = c(y+1,n-y+1),
                 geom = "point", color = "blue", 
                 fill = "blue", alpha = 0.5) +
-  stat_function(fun = dbeta, args = c(y + 10,n - y - 10),
+  stat_function(fun = dbeta, args = c(y + 10,n - y + 10),
                 geom = "point", color = "red", 
                 fill = "red", alpha = 0.5) 
 ```
-Again, red reflects the Beta(10,10) prior, and blue represents the Beta(1,1) prior. So when we have a prior of Beta(10,10), our distribution has lots of density near $1$. However, with a `uninformative' prior, our posterior is less sure, as we did not include as much prior knowledge. 
-
-
-
+Again, red reflects the Beta(10,10) prior, and blue represents the Beta(1,1) prior. So when we have a prior of Beta(10,10), our distribution has less density near $1$. However, with a `uninformative' prior, our posterior is closer to $1$. So when we don't include much prior knowledge, our model tells us that females are happier than if we have prior knowledge that they are mostly around $\theta = 0.5$. Again, this makes sense as now we are assuming that at baseline it is 50/50, imparting a prior bias. 
 
 ## Question 5
 
@@ -180,7 +177,7 @@ minus the initial proportion of shots made.
 Given two prior distributions for $\theta$ (explaining each in a
 sentence):
 
--   A noninformative prior, and
+-   A noninformative prior
 
 A noninformative prior would place equal density on all outcomes, even the (admittedly unlikely) scenario that players gets worse - this could be encapsulated by a Uniform(-1,1) prior.
 
