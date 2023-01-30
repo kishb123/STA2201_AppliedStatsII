@@ -13,7 +13,6 @@ editor:
 library(ggplot2)
 ```
 
-
 ## Question 1
 
 Consider the happiness example from the lecture, with 118 out of 129
@@ -55,6 +54,7 @@ normality, we use a normal distribution to get a confidence interval
 theta_hat = 118/129
 n = 129
 sd_th = sqrt(theta_hat*(1-theta_hat)/n)
+sd_th^2 # report variance
 CI <- c(theta_hat - 1.96*sd_th, theta_hat + 1.96*sd_th)
 CI
 ```
@@ -69,20 +69,20 @@ distribution is $p(\theta) = 1$. We calculate the posterior.
 
 $$
 p(\theta | y) = \frac{p(y|\theta)p(\theta)}{p(y)} = \frac{p(y|\theta)}{p(y)}
-$$ 
-The denominator is a constant so we only look at proportionality to
-recognize the distribution. Thus, 
-$$
+$$ The denominator is a constant so we only look at proportionality to
+recognize the distribution. Thus, $$
 p(\theta | y) \propto p(y|\theta) = \theta^y(1 - \theta)^{n - y}
-$$ 
-which is reminiscent of a beta distribution (since $\theta$ is the
+$$ which is reminiscent of a beta distribution (since $\theta$ is the
 random quantity now) with parameters $\alpha = y + 1$, $\beta = n-y+1$.
 We know that the expected value of a beta distribution is
-$\alpha/(\alpha + \beta)$, so we get 
+$\alpha/(\alpha + \beta)$, so we get
 
-$$E(p(\theta|y)) = \frac{y+1}{n+2}$$
+$$E(p(\theta|y)) = \frac{y+1}{n+2}$$ Thus, plugging in our data, we get
+$E(\hat \theta) = 119/131 = 0.908$.
 
-To calculate a credible interval, we can just take the quantiles of our beta distribution
+To calculate a credible interval, we can just take the quantiles of our
+beta distribution
+
 ```{r}
 n = 129
 y = 118
@@ -91,21 +91,28 @@ c(qbeta(0.025, shape1 = y + 1, shape2 = n - y + 1),
 )
 ```
 
-
 ## Question 3
 
 Now assume a Beta(10,10) prior on $\theta$. What is the interpretation
 of this prior? Are we assuming we know more, less or the same amount of
 information as the prior used in Question 2?
 
-If we assume a Beta(10,10) prior on $\theta$, the interpretation is that there are the same number of successes (9) and failures (9). However, this is not necessarily the same, where we found equal number of successes and failures in the Beta(1,1) distribution. Since here we actually have information about the number of successes and failures as before, we are assuming to know more information than before. That is, we actually know that we have had some success and some failure, as opposed to Beta(1,1), where we have not observed anything at all.
+If we assume a Beta(10,10) prior on $\theta$, the interpretation is that
+there are the same number of successes (9) and failures (9). However,
+this is not necessarily the same as the case we had before - where we
+found equal number of successes and failures in the Beta(1,1)
+distribution. Since here we actually have information about the number
+of successes and failures as before, we are assuming to know more
+information than before. That is, we actually know that we have had some
+success and some failure, as opposed to Beta(1,1) (which assumes equal chance for everything which is not much info!), where we have not
+observed anything at all.
 
-Again, the prior can be found by way of proportionality. We know that 
-$$
+Again, the prior can be found by way of proportionality. We know that $$
 p(\theta | y) \propto p(y|\theta)p(\theta) = \theta^y(1 - \theta)^{n - y} \theta^{9}(1-\theta)^9, \\ 
 p(\theta | y) \propto \theta^{y + 9}(1-\theta)^{n-y+9}
-$$
-which is clearly another Beta distribution when we account for the normalizing factor. In particular, it is a Beta distribution with Beta($\alpha = y + 10$, $\beta = n-y+10$). 
+$$ which is clearly another Beta distribution when we account for the
+normalizing factor. In particular, it is a Beta distribution with
+Beta($\alpha = y + 10$, $\beta = n-y+10$).
 
 ## Question 4
 
@@ -118,11 +125,11 @@ Create a graph in ggplot which illustrates
 
 Comment on what you observe.
 
-
-First, we plot the likelihood $L(y;\theta) = {129 \choose 118}\ \theta^{118}(1-\theta)^{11}$
+First, we plot the likelihood
+$L(y;\theta) = {129 \choose 118}\ \theta^{118}(1-\theta)^{11}$
 
 ```{r}
-# Plot the likelihood 
+# Plot the likelihood - I don't use geom_histogram, because I feel this way is easier
 theta <- seq(0,1,by = 0.01)
 l <- function(theta){
   return(choose(n, y) * theta^(y)*(1-theta)^(n-y))
@@ -130,11 +137,12 @@ l <- function(theta){
 
 df <- data.frame(theta = theta, likelihood = l(theta))
 ggplot(data = df, aes(x = theta, y = likelihood)) +
-  geom_line() + theme_bw()
+  geom_line() + theme_bw() + ggtitle('Likelihood function')
 
 ```
 
-Then, we plot the two priors. 
+Then, we plot the two priors.
+
 ```{r}
 df2 <- data.frame(theta = theta)
 ggplot(data = df2, aes(x = theta)) +
@@ -145,7 +153,24 @@ ggplot(data = df2, aes(x = theta)) +
                 geom = "point", color = "red", 
                 fill = "red", alpha = 0.5, lab = 'Prior 2') 
 ```
-where the first prior is in blue and the second is in red. 
+
+where the first prior is in blue and the second is in red.
+
+All together now:
+```{r}
+df3 <- data.frame(theta = theta, likelihood = l(theta))
+
+ggplot(data = df3, aes(x = theta)) +
+  stat_function(fun = dbeta, args = c(1,1),
+                geom = "point", alpha = 0.5, aes(color = 'Prior 1')) +
+  stat_function(fun = dbeta, args = c(10,10),
+                geom = "point", alpha = 0.5, aes(color = 'Prior 2')) +
+  geom_line(y = l(theta), aes(color = 'Likelihood')) +
+  labs(x = "Theta") +
+  scale_colour_manual(values = c('blue', 'red', 'black'))
+  
+```
+
 
 Now to plot the two posteriors:
 
@@ -154,13 +179,22 @@ Now to plot the two posteriors:
 df2 <- data.frame(theta = theta)
 ggplot(data = df2, aes(x = theta)) +
   stat_function(fun = dbeta, args = c(y+1,n-y+1),
-                geom = "point", color = "blue", 
-                fill = "blue", alpha = 0.5) +
+                geom = "point", aes(color = "Prior 1"), alpha = 0.5) +
   stat_function(fun = dbeta, args = c(y + 10,n - y + 10),
-                geom = "point", color = "red", 
-                fill = "red", alpha = 0.5) 
+                geom = "point",aes(color = "Prior 2"), alpha = 0.5)+
+  geom_line(y = l(theta), aes(color = 'Likelihood')) +
+  labs(x = "Theta") +
+  scale_colour_manual(values = c('black', 'blue', 'red'))
 ```
-Again, red reflects the Beta(10,10) prior, and blue represents the Beta(1,1) prior. So when we have a prior of Beta(10,10), our distribution has less density near $1$. However, with a `uninformative' prior, our posterior is closer to $1$. So when we don't include much prior knowledge, our model tells us that females are happier than if we have prior knowledge that they are mostly around $\theta = 0.5$. Again, this makes sense as now we are assuming that at baseline it is 50/50, imparting a prior bias. 
+
+Again, red reflects the Beta(10,10) prior, and blue represents the
+Beta(1,1) prior. So when we have a prior of Beta(10,10), our
+distribution has less density near $1$. However, with a \`uninformative'
+prior, our posterior is closer to $1$. So when we don't include much
+prior knowledge, our model tells us that females are happier than if we
+have prior knowledge that they are mostly around $\theta = 0.5$. Again,
+this makes sense as now we are assuming that at baseline it is 50/50,
+imparting a prior bias.
 
 ## Question 5
 
@@ -179,8 +213,10 @@ sentence):
 
 -   A noninformative prior
 
-A noninformative prior would place equal density on all outcomes, even the (admittedly unlikely) scenario that players gets worse - this could be encapsulated by a Uniform(-1,1) prior.
+A noninformative prior would place equal density on all outcomes, even
+the (admittedly unlikely) scenario that players gets worse - this could
+be encapsulated by a Uniform(-1,1) prior.
 
 -   A subjective/informative prior based on your best knowledge
 
-Players are more likely to get better than worse, so positive values of theta are more likely, so I could do a Normal(0.4, 0.2) prior (note that this makes values that are impossible such as theta > 1 or theta < -1 occur with very small probability).
+If $50$ shots a day improves success rates for players, we might want to use a Beta(91,11) prior. That means that there would be a 90% improvement in the success rate of making the shot. 
