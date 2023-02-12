@@ -210,7 +210,7 @@ Look at the summary
 ```{r}
 fit_informative
 ```
-The estimates have changed slightly. Now we have a mean $\mu$ parameter of $80.06$ rather than $86.73$. In addition, the estimate for $\sigma$ is $21.42$ instead of $20.40$. In general, the standard deviation has decreased. This could be because our prior was more confident, and this in turn influences the final posterior. Our credible intervals are also different. 
+The estimates have changed slightly. Now we have a mean $\mu$ parameter of $80.06$ rather than $86.73$. This is significantly lower. In addition, the estimate for $\sigma$ is $21.42$ instead of $20.40$. In general, the standard error has decreased. This could be because our prior was more confident, and this in turn influences the final posterior. Our credible intervals are also different as a consequence. 
 
 ```{r}
 dsamples2 <- fit_informative  |> 
@@ -231,7 +231,7 @@ dsamples2 |>
   ggtitle("Prior and posterior for mean test scores") + 
   xlab("score")
 ```
-The prior for the mean test score is much more confident than it was before, and so is the posterior. That is, the data is reinforcing the bias that we are encoding in our model. 
+The prior for the mean test score is much more confident than it was before, and so is the posterior. That is, the data is reinforcing the bias that we are encoding in our model. Both have a very narrow and steep bell-curve.
 
 
 # Adding covariates
@@ -283,7 +283,7 @@ Firstly, we see that these estimates are very similar. This is interesting, sinc
 pairs(fit2, pars = c("alpha", "beta[1]"))
 ```
 
-We see a strong negative correlation between the slope and intercept. This makes sense. We did not center our data, so the relationship between slope and intercept will be strengthened. As we increase the intercept, the slope will have to decrease to accurately fit the data. This is not good, as you can imagine that MCMC has less directions to move from where it samples. So it will make sampling from the distribution more difficult and slow convergence. In addition, it might mean that interpretation is more difficult. This correlation means that the intercept reflects a lack of any IQ for the mother - something that is impossible.  
+We see a strong negative correlation between the slope and intercept. This makes sense. We did not center our data, so the relationship between slope and intercept will be strengthened. As we increase the intercept, the slope will have to decrease to accurately fit the data. This is not good, as you can imagine that MCMC has less directions to move from where it samples (and it cannot take as large gradient steps to reach the optimal value). So it will make sampling from the distribution more difficult and slow convergence. In addition, it might mean that interpretation is more difficult. This correlation means that the intercept reflects a lack of any IQ for the mother - something that is impossible.  
 
 
 ## Plotting results
@@ -326,7 +326,7 @@ fit3 <- stan(file = here("code/models/kids3.stan"),
 fit3
 ```
 
-The Mom's IQ has a coefficient of $0.57$. This means that for a one-unit increase in IQ, there is a $0.57$ increase in the kid's test score. This is the same regardless of the fact that we mean-centered. However, the intercept now reflects the baseline test score when the mother has a mean IQ. This baseline test score is 82.38. 
+The Mom's IQ has a coefficient of $0.57$. This means that for a one-unit increase in IQ, there is a $0.57$ increase in the kid's test score. This is the same regardless of the fact that we mean-centered. However, the intercept now reflects the baseline test score when the mother has a mean IQ. This baseline test score has expected value 82.38, given the mother has the average IQ. 
 
 ## Question 5 
 
@@ -345,23 +345,11 @@ Co-efficient results are again very similar! Of course, since MCMC takes a sampl
 
 Plot the posterior estimates of scores by education of mother for mothers who have an IQ of 110. 
 ```{r}
-# Get betas
-b1 <- fit3 |>
-  spread_draws(alpha, beta[k], sigma) %>% 
-  filter(k == 1) %>% 
-  select(beta)
-b1 <- b1$beta
-
-b2 <- fit3 |>
-  spread_draws(alpha, beta[k], sigma) %>% 
-  filter(k == 2) %>% 
-  select(beta)
-b2 <- b2$beta
-
 fit3 |>
   spread_draws(alpha, beta[k], sigma) |> 
-     mutate(nhs = alpha + b2*(110- mean(kidiq$mom_iq)), 
-          hs = alpha + b1 + b2*(110- mean(kidiq$mom_iq))) |> 
+  pivot_wider(names_from = k, names_prefix ='beta', values_from = 'beta') %>% 
+     mutate(nhs = alpha + beta2*(110- mean(kidiq$mom_iq)), 
+          hs = alpha + beta1 + beta2*(110- mean(kidiq$mom_iq))) |> 
   select(nhs, hs) |> 
   pivot_longer(nhs:hs, names_to = "education", values_to = "estimated_score") |> 
   ggplot(aes(y = education, x = estimated_score)) +
@@ -384,8 +372,14 @@ lin_pred <- post_samples[["alpha"]] +
   post_samples[["beta"]][,1]*1 +
   post_samples[["beta"]][,2]*(95 - mean(kidiq$mom_iq))
 y_new <- rnorm(n = length(sigma),mean = lin_pred, sd = sigma)
-hist(y_new, xlab = 'Test Score', prob = T, 
-     main = "Posterior Predictive Distribution")
+```
+```{r}
+res <- data.frame(y=y_new)
+ggplot(res, aes(x=y)) + geom_histogram(bins = 30) +
+labs(x="Estimated Test Score",
+y="Frequency",
+title="Posterior Prediction Distribution",
+subtitle="Distribution of Test Scores for a kid who has a mother that graduated high school and has IQ of 95")
 ```
 
 
