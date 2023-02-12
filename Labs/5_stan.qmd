@@ -1,0 +1,392 @@
+---
+title: "Week 5: Bayesian linear regression and introduction to Stan"
+date: today
+date-format: "DD/MM/YY"
+format: pdf
+execute: 
+  warning: false
+  message: false
+---
+
+# Introduction
+
+Today we will be starting off using Stan, looking at the kid's test score data set (available in resources for the [Gelman Hill textbook](https://mc-stan.org/rstanarm/reference/rstanarm-datasets.html)). 
+
+```{r}
+library(tidyverse)
+library(rstan)
+library(tidybayes)
+library(here)
+```
+
+
+The data look like this:
+
+```{r}
+kidiq <- read_rds(here("data","kidiq.RDS"))
+kidiq
+```
+As well as the kid's test scores, we have a binary variable indicating whether or not the mother completed high school, the mother's IQ and age. 
+
+
+# Descriptives
+
+## Question 1
+
+Use plots or tables to show three interesting observations about the data. Remember:
+
+- Explain what your graph/ tables show
+- Choose a graph type that's appropriate to the data type
+
+```{r}
+kidiq %>% 
+  ggplot(aes(x = mom_iq, y = kid_score, color = mom_hs)) +
+  geom_point() +
+  theme_bw() +
+  xlab('Mom IQ Score') + 
+  ylab('Kid Test Score') + 
+  ggtitle('Relationship between IQ of mom with Kid Test Score')
+```
+
+This shows us the relationship between IQ score and the kid's test score, just like we saw in class. However, now we have an added layer of the mom's secondary school education. We see that most people have graduated high school, but of the parents who have not, many tend to have lower IQs. Thus, it seems reasonable that IQ is correlated with the ability to graduate high school. We will check for this correlation later, when we do a correlation plot. Also we notice that there seems to be a (slight) positive linear trend between the mother's IQ and the Kid's test score. So we have some reason to believe that there is a positive correlation. This could possibly influence the choice of our prior (although we'd be cheating since we are implicitly using information from the data). 
+
+```{r}
+kidiq %>% 
+  ggplot(aes(x = mom_iq, y = kid_score, color = mom_age)) +
+  geom_point(alpha = 0.8) +
+  stat_density_2d(linewidth = 0.1) +
+  theme_bw() + 
+  xlab('IQ of Mom') +
+  ylab('Kid Test Score') +
+  ggtitle('Relationship between age, IQ of mom, and kid test score')
+
+```
+This time we overlay with the age of the mother (instead of high school status). Note that age is actually treated as a discrete variable, so plotting directly on a scatterplot is not advised. Instead it represents the colour. We see that there is not much variability in the age of mothers. The range of values is only from 17.5 to about 28. This doesn't account for mothers in their thirties, for instance. This should be kept in mind when we run our analysis. In addition, there is not a clear trend between age and the test score, as it seems that all ages seem to be present at all levels of IQ and the kid's test score. Let's look at this closer with a correlation plot. 
+
+Finally, to avoid issues with multi-collinearity, let's look at pairwise correlations.
+```{r}
+library(corrplot)
+corrplot(cor(kidiq), method = 'color')
+```
+We see no two values are too correlated, except `mom_iq` and `kid_score` seems to be somewhat correlated. However it is not so much as to be concerned. In addition, the age of the mom does not seem to be correlated much to the kids test score, as we observed in the previous plot. With this in mind, we don't worry too much about co-linear covariates, so we continue. 
+
+
+# Estimating mean, no covariates
+
+In class we were trying to estimate the mean and standard deviation of the kid's test scores. The `kids2.stan` file contains a Stan model to do this. If you look at it, you will notice the first `data` chunk lists some inputs that we have to define: the outcome variable `y`, number of observations `N`, and the mean and standard deviation of the prior on `mu`. Let's define all these values in a `data` list.
+
+
+```{r}
+y <- kidiq$kid_score
+mu0 <- 80
+sigma0 <- 10
+
+# named list to input for stan function
+data <- list(y = y, 
+             N = length(y), 
+             mu0 = mu0,
+             sigma0 = sigma0)
+```
+
+
+
+Now we can run the model:
+
+```{r}
+fit <- stan(file = here("code/models/kids2.stan"),
+            data = data,
+            chains = 3,
+            iter = 500)
+```
+
+Look at the summary
+
+```{r}
+fit
+```
+
+Traceplot
+
+```{r}
+traceplot(fit)
+```
+
+All looks fine. 
+
+```{r}
+pairs(fit, pars = c("mu", "sigma"))
+```
+
+```{r}
+stan_dens(fit, separate_chains = TRUE)
+```
+
+
+## Understanding output
+
+What does the model actually give us? A number of samples from the posteriors. To see this, we can use `extract` to get the samples. 
+
+```{r}
+post_samples <- extract(fit)
+head(post_samples[["mu"]])
+```
+
+
+This is a list, and in this case, each element of the list has 4000 samples. E.g. quickly plot a histogram of mu
+
+```{r}
+hist(post_samples[["mu"]])
+median(post_samples[["mu"]])
+# 95% bayesian credible interval
+quantile(post_samples[["mu"]], 0.025)
+quantile(post_samples[["mu"]], 0.975)
+```
+
+
+
+## Plot estimates
+
+There are a bunch of packages, built-in functions that let you plot the estimates from the model, and I encourage you to explore these options (particularly in `bayesplot`, which we will most likely be using later on). I like using the `tidybayes` package, which allows us to easily get the posterior samples in a tidy format (e.g. using gather draws to get in long format). Once we have that, it's easy to just pipe and do ggplots as usual. 
+
+
+Get the posterior samples for mu and sigma in long format:
+
+```{r}
+dsamples <- fit  |> 
+  gather_draws(mu, sigma) # gather = long format tibble
+dsamples
+
+# wide format
+fit  |>  spread_draws(mu, sigma)
+
+# quickly calculate the quantiles using 
+
+dsamples |> 
+  median_qi(.width = 0.8)
+```
+
+Let's plot the density of the posterior samples for mu and add in the prior distribution
+
+```{r}
+dsamples |> 
+  filter(.variable == "mu") |> 
+  ggplot(aes(.value, color = "posterior")) + geom_density(size = 1) + 
+  xlim(c(70, 100)) + 
+  stat_function(fun = dnorm, 
+        args = list(mean = mu0, 
+                    sd = sigma0), 
+        aes(colour = 'prior'), size = 1) +
+  scale_color_manual(name = "", values = c("prior" = "red", "posterior" = "black")) + 
+  ggtitle("Prior and posterior for mean test scores") + 
+  xlab("score")
+  
+```
+
+## Question 2
+
+Change the prior to be much more informative (by changing the standard deviation to be 0.1). Rerun the model. Do the estimates change? Plot the prior and posterior densities. 
+
+```{r}
+mu0 <- 80
+sigma0 <- 0.1 # New
+
+# named list to input for stan function
+data <- list(y = y, 
+             N = length(y), 
+             mu0 = mu0,
+             sigma0 = sigma0)
+```
+
+Now we can re-run the model:
+```{r}
+fit_informative <- stan(file = here("code/models/kids2.stan"),
+            data = data,
+            chains = 3,
+            iter = 500)
+```
+
+Look at the summary
+
+```{r}
+fit_informative
+```
+The estimates have changed slightly. Now we have a mean $\mu$ parameter of $80.06$ rather than $86.73$. In addition, the estimate for $\sigma$ is $21.42$ instead of $20.40$. In general, the standard deviation has decreased. This could be because our prior was more confident, and this in turn influences the final posterior. Our credible intervals are also different. 
+
+```{r}
+dsamples2 <- fit_informative  |> 
+  gather_draws(mu, sigma) # gather = long format tibble
+```
+
+
+```{r}
+dsamples2 |> 
+  filter(.variable == "mu") |> 
+  ggplot(aes(.value, color = "posterior")) + geom_density(size = 1) + 
+  xlim(c(70, 100)) + 
+  stat_function(fun = dnorm, 
+        args = list(mean = mu0, 
+                    sd = sigma0), 
+        aes(colour = 'prior'), size = 1) +
+  scale_color_manual(name = "", values = c("prior" = "red", "posterior" = "black")) + 
+  ggtitle("Prior and posterior for mean test scores") + 
+  xlab("score")
+```
+The prior for the mean test score is much more confident than it was before, and so is the posterior. That is, the data is reinforcing the bias that we are encoding in our model. 
+
+
+# Adding covariates
+
+Now let's see how kid's test scores are related to mother's education. We want to run the simple linear regression
+
+$$
+Score = \alpha + \beta X
+$$
+where $X = 1$ if the mother finished high school and zero otherwise. 
+
+`kid3.stan` has the stan model to do this. Notice now we have some inputs related to the design matrix $X$ and the number of covariates (in this case, it's just 1).
+
+Let's get the data we need and run the model. 
+
+
+
+```{r}
+X <- as.matrix(kidiq$mom_hs, ncol = 1) # force this to be a matrix b/c K = 1 in stan
+K <- 1
+
+data <- list(y = y, N = length(y), 
+             X =X, K = K)
+fit2 <- stan(file = here("code/models/kids3.stan"),
+            data = data, 
+            iter = 1000)
+```
+
+
+## Question 3
+
+a) Confirm that the estimates of the intercept and slope are comparable to results from `lm()` 
+b) Do a `pairs` plot to investigate the joint sample distributions of the slope and intercept. Comment briefly on what you see. Is this potentially a problem?
+
+Building a linear model:
+
+```{r}
+lin_mod <- lm(kid_score ~ mom_hs, data = kidiq)
+summary(lin_mod)
+```
+Now look at what we got before:
+
+```{r}
+fit2
+```
+Firstly, we see that these estimates are very similar. This is interesting, since one is in a Bayesian framework. But look how low the standard error of the posterior distribution is in our Bayesian regression model. It is very small. In general, as we increase the number of data points ($n$), Bayesian inference becomes more influenced by the data, and our posterior distribution becomes less variable. This results in a distribution strongly centered around some point estimate. Typically, this point estimate is similar to the original MLE approach to finding coefficients. Thus, since we have lots of data this is not too surprising a result. 
+
+```{r}
+pairs(fit2, pars = c("alpha", "beta[1]"))
+```
+
+We see a strong negative correlation between the slope and intercept. This makes sense. We did not center our data, so the relationship between slope and intercept will be strengthened. As we increase the intercept, the slope will have to decrease to accurately fit the data. This is not good, as you can imagine that MCMC has less directions to move from where it samples. So it will make sampling from the distribution more difficult and slow convergence. In addition, it might mean that interpretation is more difficult. This correlation means that the intercept reflects a lack of any IQ for the mother - something that is impossible.  
+
+
+## Plotting results
+
+It might be nice to plot the posterior samples of the estimates for the non-high-school and high-school mothered kids. Here's some code that does this: notice the `beta[condition]` syntax. Also notice I'm using `spread_draws`, because it's easier to calculate the estimated effects in wide format
+
+```{r}
+fit2 |>
+  spread_draws(alpha, beta[k], sigma) |> 
+     mutate(nhs = alpha, # no high school is just the intercept
+          hs = alpha + beta) |> 
+  select(nhs, hs) |> 
+  pivot_longer(nhs:hs, names_to = "education", values_to = "estimated_score") |> 
+  ggplot(aes(y = education, x = estimated_score)) +
+  stat_halfeye() + 
+  theme_bw() + 
+  ggtitle("Posterior estimates of scores by education level of mother")
+  
+```
+
+
+## Question 4
+
+Add in mother's IQ as a covariate and rerun the model. Please  mean center the covariate before putting it into the model. Interpret the coefficient on the (centered) mum's IQ. 
+
+```{r}
+X <- kidiq[,c('mom_hs', 'mom_iq')]
+X$mom_iq <- X$mom_iq - mean(X$mom_iq) # Mean-Center
+X <- as.matrix(X, ncol = 2) 
+K <- 2
+
+data <- list(y = y, N = length(y), 
+             X = X, K = K)
+fit3 <- stan(file = here("code/models/kids3.stan"),
+            data = data, 
+            iter = 1000)
+```
+
+```{r}
+fit3
+```
+
+The Mom's IQ has a coefficient of $0.57$. This means that for a one-unit increase in IQ, there is a $0.57$ increase in the kid's test score. This is the same regardless of the fact that we mean-centered. However, the intercept now reflects the baseline test score when the mother has a mean IQ. This baseline test score is 82.38. 
+
+## Question 5 
+
+Confirm the results from Stan agree with `lm()`
+
+```{r}
+X <- kidiq[,c('kid_score', 'mom_hs', 'mom_iq')]
+X$mom_iq <- X$mom_iq - mean(X$mom_iq)
+lm_check <- lm(kid_score ~ mom_hs + mom_iq, data = X)
+summary(lm_check)
+```
+Co-efficient results are again very similar! Of course, since MCMC takes a sample, there is always an element of stochasticity to this so our coefficients will not be exactly the same. But they are exceptionally close.
+
+
+## Question 6
+
+Plot the posterior estimates of scores by education of mother for mothers who have an IQ of 110. 
+```{r}
+# Get betas
+b1 <- fit3 |>
+  spread_draws(alpha, beta[k], sigma) %>% 
+  filter(k == 1) %>% 
+  select(beta)
+b1 <- b1$beta
+
+b2 <- fit3 |>
+  spread_draws(alpha, beta[k], sigma) %>% 
+  filter(k == 2) %>% 
+  select(beta)
+b2 <- b2$beta
+
+fit3 |>
+  spread_draws(alpha, beta[k], sigma) |> 
+     mutate(nhs = alpha + b2*(110- mean(kidiq$mom_iq)), 
+          hs = alpha + b1 + b2*(110- mean(kidiq$mom_iq))) |> 
+  select(nhs, hs) |> 
+  pivot_longer(nhs:hs, names_to = "education", values_to = "estimated_score") |> 
+  ggplot(aes(y = education, x = estimated_score)) +
+  stat_halfeye() + 
+  theme_bw() + 
+  ggtitle("Posterior estimates of scores by education level of 110 IQ mother ")
+```
+
+
+
+## Question 7
+
+Generate and plot (as a histogram) samples from the posterior predictive distribution for a new kid with a mother who graduated high school and has an IQ of 95. 
+
+```{r}
+post_samples <- extract(fit3)
+
+sigma <- post_samples[["sigma"]]
+lin_pred <- post_samples[["alpha"]] +
+  post_samples[["beta"]][,1]*1 +
+  post_samples[["beta"]][,2]*(95 - mean(kidiq$mom_iq))
+y_new <- rnorm(n = length(sigma),mean = lin_pred, sd = sigma)
+hist(y_new, xlab = 'Test Score', prob = T, 
+     main = "Posterior Predictive Distribution")
+```
+
+
+
