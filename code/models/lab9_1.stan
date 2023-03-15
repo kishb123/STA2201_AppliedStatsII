@@ -1,0 +1,25 @@
+data {
+  int<lower=0> N; // Number of regions
+  int y[N];   // Deaths 
+  vector[N] log_e; // log of expected deaths 
+  vector[N] x; // proportion of outside workers 
+}
+
+parameters {
+  real alpha;
+  real beta;
+}
+
+transformed parameters{
+  vector[N] log_theta;
+  
+  log_theta = alpha + beta*x;
+}
+
+
+model {
+  y ~ poisson_log(log_theta + log_e);
+  alpha ~ normal(0,1);
+  beta ~ normal(0,1);
+}
+
