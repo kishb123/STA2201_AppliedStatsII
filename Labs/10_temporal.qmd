@@ -227,36 +227,6 @@ ggplot(lka, aes(year, logit_ratio)) +
 
 Run the first order and second order random walk models, including projections out to 2023. Compare these estimates with the linear fit by plotting everything on the same graph. 
 
-```{r}
-ggplot(lka, aes(year, logit_ratio)) +
-  geom_point(aes( color = source)) + 
-  geom_line(aes( color = source), lty = 2) + 
-  geom_ribbon(aes(ymin = logit_ratio - se, 
-                  ymax = logit_ratio + se, 
-                  fill =  source), alpha = 0.1) + 
-  theme_bw()+
-  # Linear Model
-  geom_line(data = res1a, aes(year, .value)) + 
-  geom_ribbon(data = res1a, aes(y = .value, ymin = .lower, ymax = .upper), alpha = 0.2)+
-  geom_line(data = res1b, aes(year, .value), col = "red", lty = "dashed") + 
-  geom_ribbon(data = res1b, aes(y = .value, ymin = .lower, ymax = .upper), alpha = 0.2, fill = "red")+
-  
-  # Random Walk 1
-  geom_line(data = res2a, aes(year, .value)) + 
-  geom_ribbon(data = res2a, aes(y = .value, ymin = .lower, ymax = .upper), alpha = 0.2)+
-  geom_line(data = res2b, aes(year, .value), col = "blue", lty = "dashed") + 
-  geom_ribbon(data = res2b, aes(y = .value, ymin = .lower, ymax = .upper), alpha = 0.2, fill = "blue")+
-  
-  # Random Walk 2
-  geom_line(data = res3a, aes(year, .value)) + 
-  geom_ribbon(data = res3a, aes(y = .value, ymin = .lower, ymax = .upper), alpha = 0.2)+
-  geom_line(data = res3b, aes(year, .value), col = "darkgreen", lty = "dashed") + 
-  geom_ribbon(data = res3b, aes(y = .value, ymin = .lower, ymax = .upper), alpha = 0.2, fill = "darkgreen")+
-  theme_bw()+
-  labs(title = "Ratio of neonatal to other child mortality (logged), Sri Lanka",
-       y = "log ratio", subtitle = "RW2 fit shown in black, projections in red")
-
-```
 
 ```{r}
 ggplot(lka, aes(year, logit_ratio)) +
@@ -354,6 +324,7 @@ We see that when there is less data the trend loses much of its characteristic l
 Briefly comment on which model you think is most appropriate, or an alternative model that would be more appropriate in this context. 
 
 Of the models we have tested, the linear model appears to actually do the best in looking at the growth of the logarithm of the ratio. The data grows, and so the linear model is the only one that follows this trend well. An issue with linear models is the unrestricted range, which would not be practical in this example. However, a more specified time series model, like a more complicated AR, MA, might be prudent to try. This is because a first-order or second-order assumption is quite a restrictive assumption that might not be great for the purposes of modeling child mortality. In particular, it's hard to see why Sri Lankan child mortality would be markov of the first order, as there might be more long-term trends that we miss out on. 
+
 
 
 
