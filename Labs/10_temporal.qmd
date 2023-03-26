@@ -315,15 +315,15 @@ ggplot(lka_noVR, aes(year, logit_ratio)) +
   theme_bw()+
   labs(title = "Ratio of neonatal to other child mortality (logged), Sri Lanka",
        y = "log ratio", subtitle = "RW2 fit shown in black, projections in red")
-
 ```
-We see that when there is less data the trend loses much of its characteristic linear property. Now it seems as though child mortality might be decreasing, after it increased. This means that our prediction learns this, and the resulting output child mortality is smaller than it was in previous years. This is a good thing, but does not follow the general trend we have seen, so it is a little more unlike the data. 
+When we exclude the VR data, we lose a lot of data in the 2000s. For instance, the data no longer goes to $2014$, and instead ends at $2005$. Therefore there is less information about recent time series trends when we extrapolate outwards. 
+
 
 ## Question 6
 
 Briefly comment on which model you think is most appropriate, or an alternative model that would be more appropriate in this context. 
 
-Of the models we have tested, the linear model appears to actually do the best in looking at the growth of the logarithm of the ratio. The data grows, and so the linear model is the only one that follows this trend well. An issue with linear models is the unrestricted range, which would not be practical in this example. However, a more specified time series model, like a more complicated AR, MA, might be prudent to try. This is because a first-order or second-order assumption is quite a restrictive assumption that might not be great for the purposes of modeling child mortality. In particular, it's hard to see why Sri Lankan child mortality would be markov of the first order, as there might be more long-term trends that we miss out on. 
+Of the models we have tested, the linear model appears to actually do the best in looking at the growth of the logarithm of the ratio. The data grows, and so the linear model is the only one that follows this trend well. An issue with linear models is the unrestricted range, which would not be practical in this example. However, a more specified time series model, like a more complicated AR, MA, might be prudent to try on stationary residuals. This is because a first-order or second-order assumption is quite a restrictive assumption that might not be great for the purposes of modeling child mortality. In particular, it's hard to see why Sri Lankan child mortality would be markov of the first order, as there might be more long-term trends that we miss out on. 
 
 
 
