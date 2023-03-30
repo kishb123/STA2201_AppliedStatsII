@@ -217,6 +217,26 @@ d %>%
  # xlim(2010,2025) +
 #  ylim(0,0.01)
 ```
+Here is a close-up on the normal scale (note it cuts off some of the shaded region):
+```{r}
+dat <- bind_rows(p, p2, p3, p4) 
+dat$med <- exp(as.numeric(dat$med))/1000
+dat$lower <- exp(as.numeric(dat$lower))/1000
+dat$upper <- exp(as.numeric(dat$upper))/1000
+
+d %>% 
+  filter(state %in% states) %>% 
+  ggplot(aes(x=year, color=state)) + 
+  geom_point(aes(y=(ent_pc)/1000)) +
+  geom_line(aes(y=(ent_pc)/1000)) + theme_bw() + 
+  geom_ribbon(data=dat, aes(x=year, ymax=upper, 
+                          ymin=lower, fill = state), alpha = 0.1, colour = NA) +
+  geom_line(data=dat, aes(x=year, y=med, color=state), linewidth = 1)  +
+  xlab("Year") + ylab("Entries Per Capita") +
+  ggtitle("Close up of Projected Entries per Capita") +
+  xlim(2010,2022) +  ylim(0,0.02)
+```
+
 ## Question 4 (bonus)
 
 P-Splines are quite useful in structural time series models, when you are using a model of the form 
